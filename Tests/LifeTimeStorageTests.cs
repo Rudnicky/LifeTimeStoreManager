@@ -1,5 +1,7 @@
 ﻿using DgtPoC;
+using log4net;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,11 +14,13 @@ namespace Tests
     [TestClass]
     public class LifeTimeStorageTests
     {
+        private static readonly ILog _log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
+
         [TestMethod]
         public void Put_IsObjectInserted_ShouldReturnTrue()
         {
             // Arrange
-            var lifeTimeStorage = new LifeTimeStorage<string>("TEST", 10, 0);
+            var lifeTimeStorage = new LifeTimeStorage<string>(_log, "TEST", 10, 0);
 
             // Act
             lifeTimeStorage.Put("test_key", "test_tag");
@@ -32,7 +36,7 @@ namespace Tests
         public void Remove_IsObjectRemovedCorrectly_ShouldReturnTrue()
         {
             // Arrange
-            var lifeTimeStorage = new LifeTimeStorage<string>("TEST", 10, 0);
+            var lifeTimeStorage = new LifeTimeStorage<string>(_log, "TEST", 10, 0);
 
             // Act
             lifeTimeStorage.Put("test_key", "test_tag");
@@ -49,7 +53,7 @@ namespace Tests
         public void Get_StoredObject_ShouldReturnSameObject()
         {
             // Arrange
-            var lifeTimeStorage = new LifeTimeStorage<string>("TEST", 10, 0);
+            var lifeTimeStorage = new LifeTimeStorage<string>(_log, "TEST", 10, 0);
 
             // Act
             lifeTimeStorage.Put("test_key", "test_tag");
@@ -64,7 +68,7 @@ namespace Tests
         public void GetValueList_AfterAddingCoupleOfObjects_ShouldReturnCountOfAddedObjects()
         {
             // Arrange
-            var lifeTimeStorage = new LifeTimeStorage<string>("TEST", 10, 0);
+            var lifeTimeStorage = new LifeTimeStorage<string>(_log, "TEST", 10, 0);
 
             // Act
             lifeTimeStorage.Put("test_key", "test_tag");
@@ -82,7 +86,7 @@ namespace Tests
         public void Clear_AfterDroppingDatabaseEntites_ShouldReturnTrue()
         {
             // Arrange
-            var lifeTimeStorage = new LifeTimeStorage<string>("TEST", 10, 0);
+            var lifeTimeStorage = new LifeTimeStorage<string>(_log, "TEST", 10, 0);
 
             // Act
             lifeTimeStorage.Put("test_key", "test_tag");
@@ -101,7 +105,7 @@ namespace Tests
         public void GetDictionary_InsertedDictionary_ShouldReturnTrue()
         {
             // Arrange
-            var lifeTimeStorage = new LifeTimeStorage<string>("TEST", 10, 0);
+            var lifeTimeStorage = new LifeTimeStorage<string>(_log, "TEST", 10, 0);
             var value = "test_tag";
 
             // Act
@@ -118,7 +122,7 @@ namespace Tests
         public void Put_ThreeItemsAndSetDestroyingObjectAfterEach5Seconds_ShouldReturnTrue()
         {
             // Arrange
-            var lifeTimeStorage = new LifeTimeStorage<string>("TEST", 10, 5);
+            var lifeTimeStorage = new LifeTimeStorage<string>(_log, "TEST", 10, 5);
 
             // Act
             lifeTimeStorage.Put("test_key", "test_tag");
@@ -142,7 +146,7 @@ namespace Tests
         public void Put_ThreeItemsAndSetDestroyingObjectAfterEachSecond_ShouldReturnTrue()
         {
             // Arrange
-            var lifeTimeStorage = new LifeTimeStorage<string>("TEST", 10, 1);
+            var lifeTimeStorage = new LifeTimeStorage<string>(_log, "TEST", 10, 1);
 
             // Act
             lifeTimeStorage.Put("test_key", "test_tag");
@@ -166,7 +170,7 @@ namespace Tests
         public void Put_CoupleOfItemsAtOnce_ShouldReturnCountEqualZero()
         {
             // Arrange
-            var lifeTimeStorage = new LifeTimeStorage<string>("TEST", 10, 1);
+            var lifeTimeStorage = new LifeTimeStorage<string>(_log, "TEST", 10, 1);
 
             // Act
             lifeTimeStorage.Put("test_key", "test_tag");

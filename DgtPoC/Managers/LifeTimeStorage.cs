@@ -1,5 +1,6 @@
 ﻿using FluentScheduler;
 using LiteDB;
+using log4net;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,19 +19,23 @@ namespace DgtPoC
         private readonly string _dataBaseFile;
         private readonly string _databaseName;
         private readonly int _expirationTime;
+        private readonly ILog _logger;
         #endregion
 
         #region Constructor
-        public LifeTimeStorage(string name, int expiration, int ttlCheck)
+        public LifeTimeStorage(ILog logger, string name, int expiration, int ttlCheck)
         {
             // check whenever some of these values are wrong
             // TODO: throw exception and block other operations.
             if (string.IsNullOrEmpty(name) || expiration <= 0 || ttlCheck < 0)
                 return;
 
+            this._logger = logger;
             this._expirationTime = expiration;
             this._databaseName = name;
             this._dataBaseFile = AppDomain.CurrentDomain.BaseDirectory + $"{_databaseName}.db";
+
+            _logger.Info("LifeTimeStorage Created");
 
             // open database (or create if doesn't exist)
             // using will take care of disposing objects
@@ -53,22 +58,29 @@ namespace DgtPoC
         #region Private Methods
         private void DeleteExpiredEntries()
         {
-            lock (_lock)
+            try
             {
-                using (var db = new LiteDatabase(_dataBaseFile))
+                lock (_lock)
                 {
-                    _fileHashCollection = db.GetCollection<FileHashTableEntry<T>>(_databaseName);
-
-                    var results = _fileHashCollection.Find(x => x.DeleteDate >= DateTime.UtcNow);
-
-                    if (results == null) return;
-
-                    foreach (FileHashTableEntry<T> fileHashTableContent in results)
+                    using (var db = new LiteDatabase(_dataBaseFile))
                     {
-                        FileHashTableRemoveEntry?.Invoke(fileHashTableContent.Key, fileHashTableContent);
-                        _fileHashCollection.Delete(fileHashTableContent.Id);
+                        _fileHashCollection = db.GetCollection<FileHashTableEntry<T>>(_databaseName);
+
+                        var results = _fileHashCollection.Find(x => x.DeleteDate >= DateTime.UtcNow);
+
+                        if (results == null) return;
+
+                        foreach (FileHashTableEntry<T> fileHashTableContent in results)
+                        {
+                            FileHashTableRemoveEntry?.Invoke(fileHashTableContent.Key, fileHashTableContent);
+                            _fileHashCollection.Delete(fileHashTableContent.Id);
+                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("LifeTimeStorage.DeleteExpiredEntries() - " + ex.Message);
             }
         }
         #endregion
@@ -76,121 +88,175 @@ namespace DgtPoC
         #region Public Methods
         public void Put(string key, T tag)
         {
-            lock (_lock)
+            try
             {
-                if (key == null) return;
-
-                using (var db = new LiteDatabase(_dataBaseFile))
+                lock (_lock)
                 {
-                    _fileHashCollection = db.GetCollection<FileHashTableEntry<T>>(_databaseName);
-                    var results = _fileHashCollection.FindOne(x => x.Key.Equals(key));
-                    if (results != null)
+                    if (key == null) return;
+
+                    using (var db = new LiteDatabase(_dataBaseFile))
                     {
-                        results.Tag = tag;
-                        results.DeleteDate = DateTime.UtcNow + TimeSpan.FromSeconds(_expirationTime);
-                        _fileHashCollection.Update(results);
-                    }
-                    else
-                    {
-                        var ob = new FileHashTableEntry<T>
+                        _fileHashCollection = db.GetCollection<FileHashTableEntry<T>>(_databaseName);
+                        var results = _fileHashCollection.FindOne(x => x.Key.Equals(key));
+                        if (results != null)
                         {
-                            Key = key,
-                            Tag = tag,
-                            DeleteDate = DateTime.UtcNow + TimeSpan.FromSeconds(_expirationTime)
-                        };
+                            results.Tag = tag;
+                            results.DeleteDate = DateTime.UtcNow + TimeSpan.FromSeconds(_expirationTime);
+                            _fileHashCollection.Update(results);
+                        }
+                        else
+                        {
+                            var ob = new FileHashTableEntry<T>
+                            {
+                                Key = key,
+                                Tag = tag,
+                                DeleteDate = DateTime.UtcNow + TimeSpan.FromSeconds(_expirationTime)
+                            };
 
-                        // binary-encoded format. Extends the JSON model to provide
-                        // additional data types, ordered fields and it's quite
-                        // efficient for encoding and decoding within different languages
-                        var mapper = new BsonMapper();
-                        var doc = mapper.ToDocument(typeof(FileHashTableEntry<T>), ob);
+                            // binary-encoded format. Extends the JSON model to provide
+                            // additional data types, ordered fields and it's quite
+                            // efficient for encoding and decoding within different languages
+                            var mapper = new BsonMapper();
+                            var doc = mapper.ToDocument(typeof(FileHashTableEntry<T>), ob);
 
-                        _fileHashCollection.Insert(ob);
+                            _fileHashCollection.Insert(ob);
+                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("LifeTimeStorage.Put() - " + ex.Message);
             }
         }
 
         public bool Remove(string key)
         {
-            lock(_lock)
+            try
             {
-                using (var db = new LiteDatabase(_dataBaseFile))
+                lock (_lock)
                 {
-                    _fileHashCollection = db.GetCollection<FileHashTableEntry<T>>(_databaseName);
-                    var results = _fileHashCollection.FindOne(x => x.Key.Equals(key));
-                    return results != null && _fileHashCollection.Delete(results.Id);
+                    using (var db = new LiteDatabase(_dataBaseFile))
+                    {
+                        _fileHashCollection = db.GetCollection<FileHashTableEntry<T>>(_databaseName);
+                        var results = _fileHashCollection.FindOne(x => x.Key.Equals(key));
+                        return results != null && _fileHashCollection.Delete(results.Id);
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("LifeTimeStorage.Remove() - " + ex.Message);
+                return false;
             }
         }
 
         public bool Exists(string key)
         {
-            lock (_lock)
+            try
             {
-                using (var db = new LiteDatabase(_dataBaseFile))
+                lock (_lock)
                 {
-                    _fileHashCollection = db.GetCollection<FileHashTableEntry<T>>(_databaseName);
-                    var results = _fileHashCollection.FindOne(x => x.Key.Equals(key));
+                    using (var db = new LiteDatabase(_dataBaseFile))
+                    {
+                        _fileHashCollection = db.GetCollection<FileHashTableEntry<T>>(_databaseName);
+                        var results = _fileHashCollection.FindOne(x => x.Key.Equals(key));
 
-                    if (results != null)
-                        return true;
+                        if (results != null)
+                            return true;
+                    }
+                    return false;
                 }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("LifeTimeStorage.Exists() - " + ex.Message);
                 return false;
             }
         }
 
         public T Get(string key)
         {
-            lock (_lock)
+            try
             {
-                using (var db = new LiteDatabase(_dataBaseFile))
+                lock (_lock)
                 {
-                    _fileHashCollection = db.GetCollection<FileHashTableEntry<T>>(_databaseName);
-                    return _fileHashCollection.FindOne(x => x.Key.Equals(key)).Tag;
+                    using (var db = new LiteDatabase(_dataBaseFile))
+                    {
+                        _fileHashCollection = db.GetCollection<FileHashTableEntry<T>>(_databaseName);
+                        return _fileHashCollection.FindOne(x => x.Key.Equals(key)).Tag;
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("LifeTimeStorage.Get() - " + ex.Message);
+                return default(T);
             }
         }
 
         public List<T> GetValueList()
         {
-            lock (_lock)
+            try
             {
-                using (var db = new LiteDatabase(_dataBaseFile))
+                lock (_lock)
                 {
-                    _fileHashCollection = db.GetCollection<FileHashTableEntry<T>>(_databaseName);
+                    using (var db = new LiteDatabase(_dataBaseFile))
+                    {
+                        _fileHashCollection = db.GetCollection<FileHashTableEntry<T>>(_databaseName);
 
-                    FileHashTableEntry<T>[] all = _fileHashCollection.FindAll().ToArray();
+                        FileHashTableEntry<T>[] all = _fileHashCollection.FindAll().ToArray();
 
-                    return new List<T>(all.Select(x => x.Tag));
+                        return new List<T>(all.Select(x => x.Tag));
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("LifeTimeStorage.GetValueList() - " + ex.Message);
+                return null;
             }
         }
 
         public Dictionary<string, T> GetDictionary()
         {
-            lock (_lock)
+            try
             {
-                using (var db = new LiteDatabase(_dataBaseFile))
+                lock (_lock)
                 {
-                    _fileHashCollection = db.GetCollection<FileHashTableEntry<T>>(_databaseName);
+                    using (var db = new LiteDatabase(_dataBaseFile))
+                    {
+                        _fileHashCollection = db.GetCollection<FileHashTableEntry<T>>(_databaseName);
 
-                    FileHashTableEntry<T>[] all = _fileHashCollection.FindAll().ToArray();
+                        FileHashTableEntry<T>[] all = _fileHashCollection.FindAll().ToArray();
 
-                    return all.ToDictionary(fileHashTableContent => fileHashTableContent.Key,
-                        fileHashTableContent => fileHashTableContent.Tag);
+                        return all.ToDictionary(fileHashTableContent => fileHashTableContent.Key,
+                            fileHashTableContent => fileHashTableContent.Tag);
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("LifeTimeStorage.GetDictionary() - " + ex.Message);
+                return null;
             }
         }
 
         public void Clear()
         {
-            lock (_lock)
+            try
             {
-                using (var db = new LiteDatabase(_dataBaseFile))
+                lock (_lock)
                 {
-                    db.DropCollection(_databaseName);
+                    using (var db = new LiteDatabase(_dataBaseFile))
+                    {
+                        db.DropCollection(_databaseName);
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("LifeTimeStorage.Clear() - " + ex.Message);
             }
         }
 

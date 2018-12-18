@@ -1,13 +1,20 @@
-﻿using System;
+﻿using log4net;
+using log4net.Config;
+using System;
+using System.Reflection;
 using System.Threading;
 
 namespace DgtPoC
 {
     class Program
     {
+        private static readonly ILog _log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
+
         static void Main(string[] args)
         {
-            var lifeTimeStorage = new LifeTimeStorage<string>("TEST", 10, 1);
+            SetupLogger();
+
+            var lifeTimeStorage = new LifeTimeStorage<string>(_log, "TEST", 10, 1);
             lifeTimeStorage.FileHashTableRemoveEntry += LifeTimeStorage_FileHashTableRemoveEntry;
 
             lifeTimeStorage.Put("test_key", "test_tag");
@@ -20,6 +27,11 @@ namespace DgtPoC
             lifeTimeStorage.RemoveJobs();
 
             Console.ReadKey();
+        }
+
+        private static void SetupLogger()
+        {
+            XmlConfigurator.Configure();
         }
 
         private static void LifeTimeStorage_FileHashTableRemoveEntry(string key, FileHashTableEntry<string> entry)
