@@ -3,5 +3,7 @@
     public interface IWorker
     {
         void Start();
+
+        void CheckPerformance(int numberOfPushedItems);
     }
 }

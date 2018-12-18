@@ -52,6 +52,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Interfaces\IWorker.cs" />
+    <Compile Include="Models\DummyModel.cs" />
     <Compile Include="Utils\CustomEventHandler.cs" />
     <Compile Include="Models\FileHashTableEntry.cs" />
     <Compile Include="Interfaces\ILifeTimeList.cs" />

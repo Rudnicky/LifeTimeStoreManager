@@ -26,9 +26,12 @@ namespace DgtPoC
         public LifeTimeStorage(ILog logger, string name, int expiration, int ttlCheck)
         {
             // check whenever some of these values are wrong
-            // TODO: throw exception and block other operations.
+            // and store information in our log.
             if (string.IsNullOrEmpty(name) || expiration <= 0 || ttlCheck < 0)
+            {
+                _logger.Error("LifeTimeStorage.Ctor() - some of the arguments weren't initialized as expected.");
                 return;
+            }
 
             this._logger = logger;
             this._expirationTime = expiration;
