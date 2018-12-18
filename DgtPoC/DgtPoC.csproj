@@ -51,12 +51,14 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Interfaces\IWorker.cs" />
     <Compile Include="Utils\CustomEventHandler.cs" />
     <Compile Include="Models\FileHashTableEntry.cs" />
     <Compile Include="Interfaces\ILifeTimeList.cs" />
     <Compile Include="Managers\LifeTimeStorage.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Worker.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

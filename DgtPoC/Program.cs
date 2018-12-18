@@ -1,8 +1,6 @@
 ﻿using log4net;
 using log4net.Config;
-using System;
 using System.Reflection;
-using System.Threading;
 
 namespace DgtPoC
 {
@@ -13,30 +11,20 @@ namespace DgtPoC
         static void Main(string[] args)
         {
             SetupLogger();
-
-            var lifeTimeStorage = new LifeTimeStorage<string>(_log, "TEST", 10, 1);
-            lifeTimeStorage.FileHashTableRemoveEntry += LifeTimeStorage_FileHashTableRemoveEntry;
-
-            lifeTimeStorage.Put("test_key", "test_tag");
-            lifeTimeStorage.Put("test_key2", "test_tag2");
-            lifeTimeStorage.Put("test_key2", "test_tag2");
-
-            Thread.Sleep(10000);
-
-            lifeTimeStorage.FileHashTableRemoveEntry -= LifeTimeStorage_FileHashTableRemoveEntry;
-            lifeTimeStorage.RemoveJobs();
-
-            Console.ReadKey();
+            SetupWorker();
         }
 
+        #region Private Static Methods
         private static void SetupLogger()
         {
             XmlConfigurator.Configure();
         }
 
-        private static void LifeTimeStorage_FileHashTableRemoveEntry(string key, FileHashTableEntry<string> entry)
+        private static void SetupWorker()
         {
-            System.Console.WriteLine("I've just removed: " + key);
+            var worker = new Worker(_log);
+            worker.Start();
         }
+        #endregion
     }
 }
